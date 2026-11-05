@@ -1,0 +1,89 @@
+{
+  "name": "fire-effect-text",
+  "version": "1.0.0",
+  "description": "Reusable physics-based burning text component (Navier-Stokes fluid simulation + Planckian blackbody radiation) for React and Plain JavaScript.",
+  "type": "module",
+  "author": "Jeff Davis",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/synkknys/fire-effect-text.git"
+  },
+  "bugs": {
+    "url": "https://github.com/synkknys/fire-effect-text/issues"
+  },
+  "homepage": "https://github.com/synkknys/fire-effect-text#readme",
+  "publishConfig": {
+    "access": "public"
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs",
+      "default": "./dist/index.mjs"
+    },
+    "./vanilla": {
+      "types": "./src/index.d.ts",
+      "import": "./dist/vanilla.mjs",
+      "require": "./dist/vanilla.cjs",
+      "default": "./dist/vanilla.mjs"
+    },
+    "./react": {
+      "types": "./src/index.d.ts",
+      "import": "./dist/react.mjs",
+      "require": "./dist/react.cjs",
+      "default": "./dist/react.mjs"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "start": "vite --open",
+    "dev": "vite",
+    "build": "node scripts/build-lib.mjs",
+    "build:demo": "vite build",
+    "preview": "vite preview",
+    "test": "node --test test/fire-text.test.mjs",
+    "prepublishOnly": "npm run build && npm test",
+    "prepack": "npm run build"
+  },
+  "peerDependencies": {
+    "react": ">=16.8.0"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "esbuild": "^0.25.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "vite": "^6.2.0"
+  },
+  "keywords": [
+    "fire",
+    "fire-text",
+    "burning-text",
+    "flame",
+    "canvas",
+    "fluid-simulation",
+    "navier-stokes",
+    "blackbody",
+    "blackbody-radiation",
+    "react",
+    "react-component",
+    "vanilla-js",
+    "webgl",
+    "typography"
+  ]
+}
