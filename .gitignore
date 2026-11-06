@@ -1,6 +1,16 @@
 node_modules/
+dist/
 demo-dist/
-.DS_Store
+coverage/
+.vite/
+.kilo/plans/
 *.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+.env
+.env.*
+!.env.example
 .vscode/
 .idea/
+*.tsbuildinfo

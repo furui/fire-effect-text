@@ -235,39 +235,20 @@ body {
   color: #ffbe85;
 }
 
-.status-badge {
-  font-size: 0.72rem;
-  font-weight: 700;
-  padding: 4px 10px;
-  border-radius: 999px;
-  display: inline-flex;
+.renderer-badge {
+  background: rgba(15, 18, 28, 0.85);
+  color: var(--muted);
+}
+
+.renderer-field {
+  flex-direction: row;
   align-items: center;
-  gap: 5px;
-  letter-spacing: 0.02em;
+  gap: 8px;
 }
 
-.status-badge.live {
-  background: rgba(20, 36, 24, 0.85);
-  border: 1px solid rgba(80, 200, 100, 0.35);
-  color: #72e094;
-}
-
-.status-badge.paused {
-  background: rgba(45, 26, 12, 0.85);
-  border: 1px solid rgba(255, 140, 50, 0.5);
-  color: #ffaa5a;
-}
-
-.status-badge.auto-paused {
-  background: rgba(45, 20, 32, 0.85);
-  border: 1px solid rgba(255, 100, 140, 0.5);
-  color: #ff98b8;
-  animation: pulse-badge 1.2s infinite ease-in-out;
-}
-
-@keyframes pulse-badge {
-  0%, 100% { opacity: 0.85; transform: scale(1); }
-  50% { opacity: 1; transform: scale(1.03); }
+.renderer-field select {
+  padding: 6px 9px;
+  font-size: 0.8rem;
 }
 
 .dimension-badge {
@@ -462,4 +443,27 @@ pre.code-box {
   font-size: 0.8rem;
   line-height: 1.5;
   overflow-x: auto;
+}
+
+.field label small {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+body.preview-body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #07090f;
+}
+
+#preview-stage {
+  width: 960px;
+  height: 380px;
+  overflow: hidden;
 }

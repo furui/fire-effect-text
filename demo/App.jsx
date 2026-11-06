@@ -1,5 +1,12 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
-import { FireText, FireTextReact, OVERLAY_BLEND_MODES } from "../src/index.js";
+import React, {
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import { FireText, OVERLAY_BLEND_MODES } from "../src/index.js";
+import { FireTextReact } from "../src/react.js";
 
 const FONT_PRESETS = [
   { label: "Cinzel Decorative (Serif)", value: "'Cinzel Decorative', Georgia, serif" },
@@ -24,16 +31,29 @@ const OVERLAY_COLOR_PRESETS = [
 ];
 
 const WINDOW_PRESETS = [
-  { label: "Auto (Text Size)", width: null, height: null },
-  { label: "Full Width", width: "100%", height: 360 },
+  { label: "Auto", width: null, height: null },
   { label: "1000 × 380", width: 1000, height: 380 },
   { label: "800 × 320", width: 800, height: 320 },
   { label: "620 × 260", width: 620, height: 260 },
   { label: "420 × 200", width: 420, height: 200 },
 ];
 
+const RENDERER_OPTIONS = [
+  { label: "Auto", value: "auto" },
+  { label: "WebGPU", value: "webgpu" },
+  { label: "WebGL2", value: "webgl2" },
+  { label: "Canvas2D", value: "canvas2d" },
+];
+
+const RENDERER_LABELS = {
+  auto: "Auto",
+  webgpu: "WebGPU",
+  webgl2: "WebGL2",
+  canvas2d: "Canvas2D",
+};
+
 export default function App() {
-  const [mode, setMode] = useState("react"); // "react" | "vanilla"
+  const [mode, setMode] = useState("react");
   const [text, setText] = useState("INFERNO");
   const [fontPreset, setFontPreset] = useState(FONT_PRESETS[0].value);
   const [customFont, setCustomFont] = useState("Papyrus, fantasy");
@@ -55,13 +75,12 @@ export default function App() {
   const [sparks, setSparks] = useState(true);
   const [bloom, setBloom] = useState(true);
   const [copied, setCopied] = useState(false);
-
-  // Pause / Resume & Debounced Auto-pause state
+  const [renderer, setRenderer] = useState("auto");
+  const [rendererInfo, setRendererInfo] = useState(null);
   const [isManualPaused, setIsManualPaused] = useState(false);
-  const [isAutoPaused, setIsAutoPaused] = useState(false);
-  const [autoPauseEnabled, setAutoPauseEnabled] = useState(true);
+  const [interactive, setInteractive] = useState(true);
+  const [pointerStrength, setPointerStrength] = useState(1);
 
-  // Resizable test window state
   const [stageWidth, setStageWidth] = useState(980);
   const [stageHeight, setStageHeight] = useState(360);
   const [isAutoWindow, setIsAutoWindow] = useState(false);
@@ -70,35 +89,48 @@ export default function App() {
 
   const stageCardRef = useRef(null);
   const dragStartRef = useRef({ x: 0, y: 0, w: 0, h: 0 });
-  const resumeTimerRef = useRef(null);
-  const isInitialMountRef = useRef(true);
+  const copyTimerRef = useRef(null);
 
   const activeFontFamily =
     fontPreset === "__custom__" ? customFont || "sans-serif" : fontPreset;
 
-  const isEffectPaused = isManualPaused || isAutoPaused;
+  const deferredText = useDeferredValue(text);
+  const deferredFontSize = useDeferredValue(fontSize);
+  const deferredLetterSpacing = useDeferredValue(letterSpacing);
+  const deferredFlameHeight = useDeferredValue(flameHeight);
+  const deferredSimScale = useDeferredValue(simScale);
+  const deferredStageWidth = useDeferredValue(stageWidth);
+  const deferredStageHeight = useDeferredValue(stageHeight);
 
   const effectiveCanvasWidth =
-    !isAutoWindow && fitCanvasToWindow && typeof stageWidth === "number"
-      ? stageWidth
+    !isAutoWindow && fitCanvasToWindow && typeof deferredStageWidth === "number"
+      ? deferredStageWidth
       : null;
   const effectiveCanvasHeight =
-    !isAutoWindow && fitCanvasToWindow && typeof stageHeight === "number"
-      ? stageHeight
+    !isAutoWindow &&
+    fitCanvasToWindow &&
+    typeof deferredStageHeight === "number"
+      ? deferredStageHeight
       : null;
 
+  const handleRendererChange = useCallback((info) => {
+    setRendererInfo(info);
+  }, []);
+
   const fireOptions = {
-    text: text || " ",
+    text: deferredText || " ",
     fontFamily: activeFontFamily,
-    fontSize,
+    fontSize: deferredFontSize,
     fontWeight,
     fontStyle,
-    letterSpacing: `${letterSpacing}px`,
+    letterSpacing: `${deferredLetterSpacing}px`,
     fuel,
     wind,
-    flameHeight,
-    paused: isEffectPaused,
-    simScale,
+    flameHeight: deferredFlameHeight,
+    paused: isManualPaused,
+    interactive,
+    pointerStrength,
+    simScale: deferredSimScale,
     showTextBody,
     overlayText,
     overlayBlendMode,
@@ -112,9 +144,11 @@ export default function App() {
     background: "#07090f",
     width: effectiveCanvasWidth,
     height: effectiveCanvasHeight,
+    renderer,
+    fallback: true,
+    onRendererChange: handleRendererChange,
   };
 
-  // Plain JS container mount when mode === "vanilla"
   const vanillaContainerRef = useRef(null);
   const vanillaInstanceRef = useRef(null);
 
@@ -134,17 +168,19 @@ export default function App() {
     }
   }, [
     mode,
-    text,
+    deferredText,
     activeFontFamily,
-    fontSize,
+    deferredFontSize,
     fontWeight,
     fontStyle,
-    letterSpacing,
+    deferredLetterSpacing,
     fuel,
     wind,
-    flameHeight,
-    isEffectPaused,
-    simScale,
+    deferredFlameHeight,
+    isManualPaused,
+    interactive,
+    pointerStrength,
+    deferredSimScale,
     showTextBody,
     overlayText,
     overlayBlendMode,
@@ -156,97 +192,41 @@ export default function App() {
     bloom,
     effectiveCanvasWidth,
     effectiveCanvasHeight,
+    renderer,
   ]);
 
-  // Debounced auto-pause trigger (pauses immediately, resumes after 1000ms of inactivity)
-  const triggerAutoPause = useCallback(() => {
-    if (!autoPauseEnabled || isManualPaused) return;
-
-    setIsAutoPaused(true);
-    if (resumeTimerRef.current) {
-      clearTimeout(resumeTimerRef.current);
-    }
-    resumeTimerRef.current = setTimeout(() => {
-      setIsAutoPaused(false);
-    }, 1000);
-  }, [autoPauseEnabled, isManualPaused]);
-
-  // Trigger debounced auto-pause on window scroll
   useEffect(() => {
-    const handleScroll = () => {
-      triggerAutoPause();
-    };
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => {
-      window.removeEventListener("scroll", handleScroll);
-    };
-  }, [triggerAutoPause]);
-
-  // Trigger debounced auto-pause on any setting change (after initial mount)
-  useEffect(() => {
-    if (isInitialMountRef.current) {
-      isInitialMountRef.current = false;
-      return;
-    }
-    triggerAutoPause();
-  }, [
-    text,
-    fontPreset,
-    customFont,
-    fontSize,
-    fontWeight,
-    fontStyle,
-    letterSpacing,
-    fuel,
-    wind,
-    flameHeight,
-    overlayText,
-    overlayBlendMode,
-    overlayColor,
-    overlayOpacity,
-    overlayStrokeWidth,
-    smoke,
-    sparks,
-    bloom,
-    simScale,
-    stageWidth,
-    stageHeight,
-    fitCanvasToWindow,
-    triggerAutoPause,
-  ]);
-
-  // Cleanup auto-pause timer on unmount
-  useEffect(() => {
-    return () => {
-      if (resumeTimerRef.current) {
-        clearTimeout(resumeTimerRef.current);
-      }
-    };
-  }, []);
-
-  // Keyboard shortcut: Spacebar toggles play/pause (unless user is typing in text input)
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.code === "Space" && e.target.tagName !== "INPUT" && e.target.tagName !== "TEXTAREA") {
-        e.preventDefault();
-        setIsManualPaused((prev) => !prev);
-        setIsAutoPaused(false);
+    const handleKeyDown = (event) => {
+      if (
+        event.code === "Space" &&
+        event.target.tagName !== "INPUT" &&
+        event.target.tagName !== "TEXTAREA" &&
+        event.target.tagName !== "SELECT"
+      ) {
+        event.preventDefault();
+        setIsManualPaused((previous) => !previous);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  // Handle drag to resize test window
-  const handleResizePointerDown = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
+  useEffect(
+    () => () => {
+      if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+    },
+    []
+  );
+
+  const handleResizePointerDown = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
     const rect = stageCardRef.current?.getBoundingClientRect();
     if (!rect) return;
 
     dragStartRef.current = {
-      x: e.clientX,
-      y: e.clientY,
+      x: event.clientX,
+      y: event.clientY,
       w: rect.width,
       h: rect.height,
     };
@@ -256,10 +236,12 @@ export default function App() {
     const onPointerMove = (moveEvent) => {
       const dx = moveEvent.clientX - dragStartRef.current.x;
       const dy = moveEvent.clientY - dragStartRef.current.y;
-      const newW = Math.max(260, Math.min(1400, Math.round(dragStartRef.current.w + dx)));
-      const newH = Math.max(160, Math.min(850, Math.round(dragStartRef.current.h + dy)));
-      setStageWidth(newW);
-      setStageHeight(newH);
+      setStageWidth(
+        Math.max(260, Math.min(1400, Math.round(dragStartRef.current.w + dx)))
+      );
+      setStageHeight(
+        Math.max(160, Math.min(850, Math.round(dragStartRef.current.h + dy)))
+      );
     };
 
     const onPointerUp = () => {
@@ -275,10 +257,6 @@ export default function App() {
   const applyPreset = (preset) => {
     if (preset.width === null) {
       setIsAutoWindow(true);
-    } else if (preset.width === "100%") {
-      setIsAutoWindow(false);
-      setStageWidth("100%");
-      setStageHeight(preset.height);
     } else {
       setIsAutoWindow(false);
       setStageWidth(preset.width);
@@ -286,21 +264,15 @@ export default function App() {
     }
   };
 
-  const toggleManualPause = () => {
-    if (isAutoPaused) {
-      setIsAutoPaused(false);
-    }
-    setIsManualPaused((prev) => !prev);
-  };
-
   const widthPropCode =
     effectiveCanvasWidth ? `\n      width={${effectiveCanvasWidth}}` : "";
   const heightPropCode =
     effectiveCanvasHeight ? `\n      height={${effectiveCanvasHeight}}` : "";
-  const pausedPropCode =
-    isManualPaused ? `\n      paused={true}` : "";
+  const pausedPropCode = isManualPaused ? `\n      paused={true}` : "";
   const flameHeightPropCode =
     flameHeight !== 1.0 ? `\n      flameHeight={${flameHeight}}` : "";
+  const rendererPropCode =
+    renderer !== "auto" ? `\n      renderer=${JSON.stringify(renderer)}` : "";
 
   const codeSnippet =
     mode === "react"
@@ -316,7 +288,9 @@ export function BurningHeading() {
       fontStyle=${JSON.stringify(fontStyle)}
       letterSpacing="${letterSpacing}px"
       fuel={${fuel}}
-      wind={${wind}}${flameHeightPropCode}${pausedPropCode}
+      wind={${wind}}
+      interactive={${interactive}}
+      pointerStrength={${pointerStrength}}${flameHeightPropCode}${pausedPropCode}${rendererPropCode}
       overlayText={${overlayText}}
       overlayBlendMode=${JSON.stringify(overlayBlendMode)}
       overlayColor=${JSON.stringify(overlayColor)}
@@ -329,7 +303,7 @@ export function BurningHeading() {
     />
   );
 }`
-      : `import { FireText } from "fire-effect-text";
+      : `import { FireText } from "fire-effect-text/vanilla";
 
 const fire = new FireText("#fire-container", {
   text: ${JSON.stringify(text)},
@@ -339,7 +313,9 @@ const fire = new FireText("#fire-container", {
   fontStyle: ${JSON.stringify(fontStyle)},
   letterSpacing: "${letterSpacing}px",
   fuel: ${fuel},
-  wind: ${wind},${flameHeight !== 1.0 ? `\n  flameHeight: ${flameHeight},` : ""}${isManualPaused ? `\n  paused: true,` : ""}
+  wind: ${wind},
+  interactive: ${interactive},
+  pointerStrength: ${pointerStrength},${flameHeight !== 1.0 ? `\n  flameHeight: ${flameHeight},` : ""}${isManualPaused ? `\n  paused: true,` : ""}${renderer !== "auto" ? `\n  renderer: ${JSON.stringify(renderer)},` : ""}
   overlayText: ${overlayText},
   overlayBlendMode: ${JSON.stringify(overlayBlendMode)},
   overlayColor: ${JSON.stringify(overlayColor)},
@@ -353,25 +329,34 @@ const fire = new FireText("#fire-container", {
   showTextBody: ${showTextBody},
 });
 
-// Control playback anytime:
 // fire.pause();
 // fire.resume();
 // fire.togglePause();`;
 
   const handleCopy = () => {
-    navigator.clipboard?.writeText(codeSnippet);
+    navigator.clipboard?.writeText(codeSnippet).catch(() => {});
     setCopied(true);
-    setTimeout(() => setCopied(false), 1800);
+    if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+    copyTimerRef.current = setTimeout(() => setCopied(false), 1800);
   };
+
+  const requestedLabel = RENDERER_LABELS[renderer] || renderer;
+  const actualLabel = rendererInfo?.renderer
+    ? RENDERER_LABELS[rendererInfo.renderer]
+    : null;
+  const rendererStatus = actualLabel
+    ? requestedLabel !== "Auto" &&
+      rendererInfo.requested !== rendererInfo.renderer
+      ? `${requestedLabel} unavailable - ${actualLabel}`
+      : `Renderer: ${actualLabel}`
+    : "Renderer: starting...";
 
   return (
     <div className="app-shell">
       <header className="top-bar">
         <div className="brand">
-          <h1>fire-effect-text — Demo Harness</h1>
-          <p>
-            Navier–Stokes Fluid + Planckian Blackbody Radiation Text Component
-          </p>
+          <h1>fire-effect-text</h1>
+          <p>Burning text for React and JavaScript.</p>
         </div>
         <div className="mode-tabs" role="tablist">
           <button
@@ -379,30 +364,28 @@ const fire = new FireText("#fire-container", {
             className={`mode-tab ${mode === "react" ? "active" : ""}`}
             onClick={() => setMode("react")}
           >
-            React Component (&lt;FireText /&gt;)
+            React
           </button>
           <button
             type="button"
             className={`mode-tab ${mode === "vanilla" ? "active" : ""}`}
             onClick={() => setMode("vanilla")}
           >
-            Plain JS (new FireText())
+            JavaScript
           </button>
         </div>
       </header>
 
-      {/* Resizable Test Window Container */}
       <section className="stage-section">
         <div className="stage-toolbar">
           <div className="stage-left-controls">
-            {/* Play / Pause Toggle Button */}
             <button
               type="button"
-              className={`play-pause-btn ${isEffectPaused ? "paused" : "playing"}`}
-              onClick={toggleManualPause}
-              title="Pause or resume the fire simulation (Shortcut: Space)"
+              className={`play-pause-btn ${isManualPaused ? "paused" : "playing"}`}
+              onClick={() => setIsManualPaused((previous) => !previous)}
+              title="Pause or resume (Space)"
             >
-              {isEffectPaused ? (
+              {isManualPaused ? (
                 <>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                     <polygon points="5 3 19 12 5 21 5 3" />
@@ -420,7 +403,6 @@ const fire = new FireText("#fire-container", {
               )}
             </button>
 
-            {/* Presets */}
             <div className="stage-presets">
               <span className="toolbar-label">Size:</span>
               {WINDOW_PRESETS.map((preset) => {
@@ -444,26 +426,27 @@ const fire = new FireText("#fire-container", {
           </div>
 
           <div className="stage-right-controls">
-            <label className="toggle-pill" title="Make fire canvas fit exact test window dimensions">
+            <label className="field renderer-field">
+              <span className="toolbar-label">Renderer</span>
+              <select
+                value={renderer}
+                onChange={(event) => setRenderer(event.target.value)}
+              >
+                {RENDERER_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="toggle-pill" title="Make the canvas fill the preview">
               <input
                 type="checkbox"
                 checked={fitCanvasToWindow && !isAutoWindow}
                 disabled={isAutoWindow}
-                onChange={(e) => setFitCanvasToWindow(e.target.checked)}
+                onChange={(event) => setFitCanvasToWindow(event.target.checked)}
               />
-              Fit Canvas to Window
-            </label>
-
-            <label className="toggle-pill auto-pause-toggle" title="Auto-pause effect for 1s on edit or scroll">
-              <input
-                type="checkbox"
-                checked={autoPauseEnabled}
-                onChange={(e) => {
-                  setAutoPauseEnabled(e.target.checked);
-                  if (!e.target.checked) setIsAutoPaused(false);
-                }}
-              />
-              Auto-Pause (1s debounce)
+              Fit to Preview
             </label>
           </div>
         </div>
@@ -478,37 +461,18 @@ const fire = new FireText("#fire-container", {
           <div
             ref={stageCardRef}
             className={`stage-card ${isDraggingResize ? "resizing" : ""}`}
-            style={{
-              width: "100%",
-              height: isAutoWindow ? "auto" : "100%",
-            }}
+            style={{ width: "100%", height: isAutoWindow ? "auto" : "100%" }}
           >
             <div className="stage-badges">
               <span className="stage-badge">
-                {mode === "react"
-                  ? "React <FireTextReact />"
-                  : "Vanilla JS new FireText()"}
+                {mode === "react" ? "React" : "JavaScript"}
               </span>
-
-              {/* Status Badge */}
-              {isAutoPaused ? (
-                <span className="status-badge auto-paused">
-                  ⏸ Auto-Paused (1s debounce)
-                </span>
-              ) : isManualPaused ? (
-                <span className="status-badge paused">
-                  ⏸ Paused
-                </span>
-              ) : (
-                <span className="status-badge live">
-                  ● Live Simulation
-                </span>
-              )}
+              <span className="stage-badge renderer-badge">{rendererStatus}</span>
             </div>
 
             <span className="dimension-badge">
               {isAutoWindow
-                ? "Auto (Content)"
+                ? "Auto"
                 : `${typeof stageWidth === "number" ? `${stageWidth}px` : stageWidth} × ${stageHeight}px`}
             </span>
 
@@ -519,14 +483,15 @@ const fire = new FireText("#fire-container", {
             )}
 
             <span className="stage-hint">
-              Drag letters to blow fire • Drag bottom-right corner ↘ to resize test window
+              {interactive
+                ? "Click or drag over the text to blow the flames. Drag the corner to resize."
+                : "Pointer interaction is off. Drag the corner to resize."}
             </span>
 
-            {/* Corner Resize Handle */}
             <div
               className="stage-resize-handle"
               onPointerDown={handleResizePointerDown}
-              title="Drag to resize test window"
+              title="Drag to resize"
             >
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
                 <path d="M10 2L2 10" stroke="#ffbe85" strokeWidth="1.5" strokeLinecap="round" />
@@ -540,29 +505,29 @@ const fire = new FireText("#fire-container", {
 
       <div className="grid-layout">
         <section className="panel">
-          <h2>Typography, Flame Reach &amp; Physics Controls</h2>
+          <h2>Settings</h2>
           <div className="controls-grid">
             <div className="field full">
-              <label htmlFor="inp-text">Text Content</label>
+              <label htmlFor="inp-text">Text</label>
               <input
                 id="inp-text"
                 type="text"
                 value={text}
-                onChange={(e) => setText(e.target.value)}
+                onChange={(event) => setText(event.target.value)}
                 placeholder="Type any word or phrase..."
               />
             </div>
 
             <div className="field">
-              <label htmlFor="sel-font">Font Family</label>
+              <label htmlFor="sel-font">Font</label>
               <select
                 id="sel-font"
                 value={fontPreset}
-                onChange={(e) => setFontPreset(e.target.value)}
+                onChange={(event) => setFontPreset(event.target.value)}
               >
-                {FONT_PRESETS.map((f) => (
-                  <option key={f.value} value={f.value}>
-                    {f.label}
+                {FONT_PRESETS.map((font) => (
+                  <option key={font.value} value={font.value}>
+                    {font.label}
                   </option>
                 ))}
               </select>
@@ -570,13 +535,13 @@ const fire = new FireText("#fire-container", {
 
             {fontPreset === "__custom__" && (
               <div className="field">
-                <label htmlFor="inp-custom-font">Custom CSS Font Name</label>
+                <label htmlFor="inp-custom-font">Custom Font</label>
                 <input
                   id="inp-custom-font"
                   type="text"
                   value={customFont}
-                  onChange={(e) => setCustomFont(e.target.value)}
-                  placeholder="e.g. 'Futura', 'Brush Script MT', cursive"
+                  onChange={(event) => setCustomFont(event.target.value)}
+                  placeholder="e.g. 'Futura', cursive"
                 />
               </div>
             )}
@@ -592,33 +557,33 @@ const fire = new FireText("#fire-container", {
                 max={180}
                 step={2}
                 value={fontSize}
-                onChange={(e) => setFontSize(Number(e.target.value))}
+                onChange={(event) => setFontSize(Number(event.target.value))}
               />
             </div>
 
             <div className="field">
-              <label htmlFor="rng-flame-reach">
-                Flame Reach (Height) <span>{Math.round(flameHeight * 100)}%</span>
+              <label htmlFor="rng-flame-height">
+                Flame Height <span>{Math.round(flameHeight * 100)}%</span>
               </label>
               <input
-                id="rng-flame-reach"
+                id="rng-flame-height"
                 type="range"
                 min={0.2}
                 max={2.5}
                 step={0.05}
                 value={flameHeight}
-                onChange={(e) => setFlameHeight(Number(e.target.value))}
+                onChange={(event) => setFlameHeight(Number(event.target.value))}
               />
             </div>
 
             <div className="field">
-              <label htmlFor="sel-weight">Font Weight &amp; Style</label>
+              <label htmlFor="sel-weight">Weight &amp; Style</label>
               <div style={{ display: "flex", gap: "8px" }}>
                 <select
                   id="sel-weight"
                   style={{ flex: 1 }}
                   value={fontWeight}
-                  onChange={(e) => setFontWeight(e.target.value)}
+                  onChange={(event) => setFontWeight(event.target.value)}
                 >
                   <option value="400">400 Normal</option>
                   <option value="600">600 SemiBold</option>
@@ -627,7 +592,7 @@ const fire = new FireText("#fire-container", {
                 </select>
                 <select
                   value={fontStyle}
-                  onChange={(e) => setFontStyle(e.target.value)}
+                  onChange={(event) => setFontStyle(event.target.value)}
                 >
                   <option value="normal">Normal</option>
                   <option value="italic">Italic</option>
@@ -646,37 +611,37 @@ const fire = new FireText("#fire-container", {
                 max={24}
                 step={1}
                 value={letterSpacing}
-                onChange={(e) => setLetterSpacing(Number(e.target.value))}
+                onChange={(event) => setLetterSpacing(Number(event.target.value))}
               />
             </div>
 
             <div className="field">
-              <label htmlFor="sel-blend">Overlay Blend Mode</label>
+              <label htmlFor="sel-blend">Blend Mode</label>
               <select
                 id="sel-blend"
                 value={overlayBlendMode}
                 disabled={!overlayText}
-                onChange={(e) => setOverlayBlendMode(e.target.value)}
+                onChange={(event) => setOverlayBlendMode(event.target.value)}
               >
-                {OVERLAY_BLEND_MODES.map((bm) => (
-                  <option key={bm} value={bm}>
-                    {bm}
+                {OVERLAY_BLEND_MODES.map((blendMode) => (
+                  <option key={blendMode} value={blendMode}>
+                    {blendMode}
                   </option>
                 ))}
               </select>
             </div>
 
             <div className="field">
-              <label htmlFor="sel-overlay-color">Overlay Fill Style</label>
+              <label htmlFor="sel-overlay-color">Overlay Color</label>
               <select
                 id="sel-overlay-color"
                 value={overlayColor}
                 disabled={!overlayText}
-                onChange={(e) => setOverlayColor(e.target.value)}
+                onChange={(event) => setOverlayColor(event.target.value)}
               >
-                {OVERLAY_COLOR_PRESETS.map((c) => (
-                  <option key={c.value} value={c.value}>
-                    {c.label}
+                {OVERLAY_COLOR_PRESETS.map((color) => (
+                  <option key={color.value} value={color.value}>
+                    {color.label}
                   </option>
                 ))}
               </select>
@@ -694,13 +659,13 @@ const fire = new FireText("#fire-container", {
                 step={0.05}
                 disabled={!overlayText}
                 value={overlayOpacity}
-                onChange={(e) => setOverlayOpacity(Number(e.target.value))}
+                onChange={(event) => setOverlayOpacity(Number(event.target.value))}
               />
             </div>
 
             <div className="field">
               <label htmlFor="rng-overlay-stroke">
-                Overlay Rim Stroke <span>{overlayStrokeWidth.toFixed(1)}px</span>
+                Outline Width <span>{overlayStrokeWidth.toFixed(1)}px</span>
               </label>
               <input
                 id="rng-overlay-stroke"
@@ -710,13 +675,15 @@ const fire = new FireText("#fire-container", {
                 step={0.5}
                 disabled={!overlayText}
                 value={overlayStrokeWidth}
-                onChange={(e) => setOverlayStrokeWidth(Number(e.target.value))}
+                onChange={(event) =>
+                  setOverlayStrokeWidth(Number(event.target.value))
+                }
               />
             </div>
 
             <div className="field">
               <label htmlFor="rng-fuel">
-                Flame Fuel <span>{Math.round(fuel * 100)}%</span>
+                Fuel <span>{Math.round(fuel * 100)}%</span>
               </label>
               <input
                 id="rng-fuel"
@@ -725,7 +692,7 @@ const fire = new FireText("#fire-container", {
                 max={2.1}
                 step={0.05}
                 value={fuel}
-                onChange={(e) => setFuel(Number(e.target.value))}
+                onChange={(event) => setFuel(Number(event.target.value))}
               />
             </div>
 
@@ -736,8 +703,8 @@ const fire = new FireText("#fire-container", {
                   {Math.abs(wind) < 0.04
                     ? "Calm"
                     : wind > 0
-                    ? `+${wind.toFixed(2)} →`
-                    : `← ${wind.toFixed(2)}`}
+                      ? `+${wind.toFixed(2)} →`
+                      : `← ${wind.toFixed(2)}`}
                 </span>
               </label>
               <input
@@ -747,20 +714,14 @@ const fire = new FireText("#fire-container", {
                 max={1}
                 step={0.05}
                 value={wind}
-                onChange={(e) => setWind(Number(e.target.value))}
+                onChange={(event) => setWind(Number(event.target.value))}
               />
             </div>
 
             <div className="field">
               <label htmlFor="rng-stage-w">
-                Window Width{" "}
-                <span>
-                  {isAutoWindow
-                    ? "Auto"
-                    : typeof stageWidth === "number"
-                    ? `${stageWidth}px`
-                    : stageWidth}
-                </span>
+                Preview Width{" "}
+                <span>{isAutoWindow ? "Auto" : `${stageWidth}px`}</span>
               </label>
               <input
                 id="rng-stage-w"
@@ -768,18 +729,18 @@ const fire = new FireText("#fire-container", {
                 min={260}
                 max={1200}
                 step={20}
-                disabled={isAutoWindow || stageWidth === "100%"}
+                disabled={isAutoWindow}
                 value={typeof stageWidth === "number" ? stageWidth : 980}
-                onChange={(e) => {
+                onChange={(event) => {
                   setIsAutoWindow(false);
-                  setStageWidth(Number(e.target.value));
+                  setStageWidth(Number(event.target.value));
                 }}
               />
             </div>
 
             <div className="field">
               <label htmlFor="rng-stage-h">
-                Window Height{" "}
+                Preview Height{" "}
                 <span>{isAutoWindow ? "Auto" : `${stageHeight}px`}</span>
               </label>
               <input
@@ -790,16 +751,17 @@ const fire = new FireText("#fire-container", {
                 step={10}
                 disabled={isAutoWindow}
                 value={stageHeight}
-                onChange={(e) => {
+                onChange={(event) => {
                   setIsAutoWindow(false);
-                  setStageHeight(Number(e.target.value));
+                  setStageHeight(Number(event.target.value));
                 }}
               />
             </div>
 
             <div className="field">
               <label htmlFor="rng-res">
-                Sim Cell Scale <span>{simScale.toFixed(1)}px</span>
+                Simulation Cell Size <span>{simScale.toFixed(1)}px</span>
+                <small>smaller is sharper</small>
               </label>
               <input
                 id="rng-res"
@@ -808,60 +770,87 @@ const fire = new FireText("#fire-container", {
                 max={5.0}
                 step={0.2}
                 value={simScale}
-                onChange={(e) => setSimScale(Number(e.target.value))}
+                onChange={(event) => setSimScale(Number(event.target.value))}
+              />
+            </div>
+
+            <div className="field">
+              <label htmlFor="rng-pointer">
+                Pointer Strength <span>{pointerStrength.toFixed(1)}×</span>
+                <small>0 disables the effect</small>
+              </label>
+              <input
+                id="rng-pointer"
+                type="range"
+                min={0}
+                max={3}
+                step={0.1}
+                disabled={!interactive}
+                value={pointerStrength}
+                onChange={(event) =>
+                  setPointerStrength(Number(event.target.value))
+                }
               />
             </div>
 
             <div className="field full">
-              <label>Render Layers &amp; Controls</label>
+              <label>Layers</label>
               <div className="toggles-row">
                 <label className="toggle-pill">
                   <input
                     type="checkbox"
                     checked={isManualPaused}
-                    onChange={(e) => setIsManualPaused(e.target.checked)}
+                    onChange={(event) => setIsManualPaused(event.target.checked)}
                   />
-                  Pause Animation
+                  Pause
                 </label>
                 <label className="toggle-pill">
                   <input
                     type="checkbox"
                     checked={overlayText}
-                    onChange={(e) => setOverlayText(e.target.checked)}
+                    onChange={(event) => setOverlayText(event.target.checked)}
                   />
-                  Foreground Text Overlay
+                  Text Overlay
                 </label>
                 <label className="toggle-pill">
                   <input
                     type="checkbox"
                     checked={showTextBody}
-                    onChange={(e) => setShowTextBody(e.target.checked)}
+                    onChange={(event) => setShowTextBody(event.target.checked)}
                   />
-                  Under-Flame Ember Body
+                  Ember Body
                 </label>
                 <label className="toggle-pill">
                   <input
                     type="checkbox"
                     checked={smoke}
-                    onChange={(e) => setSmoke(e.target.checked)}
+                    onChange={(event) => setSmoke(event.target.checked)}
                   />
-                  Soot / Smoke Plume
+                  Smoke
                 </label>
                 <label className="toggle-pill">
                   <input
                     type="checkbox"
                     checked={sparks}
-                    onChange={(e) => setSparks(e.target.checked)}
+                    onChange={(event) => setSparks(event.target.checked)}
                   />
-                  Ember Sparks
+                  Sparks
                 </label>
                 <label className="toggle-pill">
                   <input
                     type="checkbox"
                     checked={bloom}
-                    onChange={(e) => setBloom(e.target.checked)}
+                    onChange={(event) => setBloom(event.target.checked)}
                   />
-                  Thermal Bloom
+                  Glow
+                </label>
+                <label className="toggle-pill">
+                  <input
+                    type="checkbox"
+                    checked={interactive}
+                    onChange={(event) => setInteractive(event.target.checked)}
+                  />
+                  Pointer
                 </label>
               </div>
             </div>
@@ -870,9 +859,9 @@ const fire = new FireText("#fire-container", {
 
         <section className="panel">
           <div className="code-header">
-            <h2>{mode === "react" ? "React Usage" : "Plain JS Usage"}</h2>
+            <h2>{mode === "react" ? "React Usage" : "JavaScript Usage"}</h2>
             <button type="button" className="copy-btn" onClick={handleCopy}>
-              {copied ? "Copied!" : "Copy Code"}
+              {copied ? "Copied!" : "Copy"}
             </button>
           </div>
           <pre className="code-box">

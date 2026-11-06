@@ -9,12 +9,10 @@ const shared = {
   target: ["es2020"],
 };
 
-// 1. Main entry (ESM + CJS)
 await build({
   ...shared,
   entryPoints: ["src/index.js"],
   format: "esm",
-  external: ["react"],
   outfile: "dist/index.mjs",
 });
 
@@ -22,37 +20,34 @@ await build({
   ...shared,
   entryPoints: ["src/index.js"],
   format: "cjs",
-  external: ["react"],
   outfile: "dist/index.cjs",
 });
 
-// 2. Vanilla-only entry (zero dependencies, ESM + CJS + global IIFE)
 await build({
   ...shared,
-  entryPoints: ["src/lib/FireText.js"],
+  entryPoints: ["src/vanilla.js"],
   format: "esm",
   outfile: "dist/vanilla.mjs",
 });
 
 await build({
   ...shared,
-  entryPoints: ["src/lib/FireText.js"],
+  entryPoints: ["src/vanilla.js"],
   format: "cjs",
   outfile: "dist/vanilla.cjs",
 });
 
 await build({
   ...shared,
-  entryPoints: ["src/lib/FireText.js"],
+  entryPoints: ["src/vanilla.js"],
   format: "iife",
   globalName: "FireTextBundle",
   outfile: "dist/fire-text.global.js",
 });
 
-// 3. React entry (ESM + CJS)
 await build({
   ...shared,
-  entryPoints: ["src/lib/FireTextReact.jsx"],
+  entryPoints: ["src/react.js"],
   format: "esm",
   external: ["react"],
   outfile: "dist/react.mjs",
@@ -60,10 +55,10 @@ await build({
 
 await build({
   ...shared,
-  entryPoints: ["src/lib/FireTextReact.jsx"],
+  entryPoints: ["src/react.js"],
   format: "cjs",
   external: ["react"],
   outfile: "dist/react.cjs",
 });
 
-console.log("Built dist/ bundles (ESM, CJS, Vanilla, React, IIFE).");
+console.log("Built dist/ bundles (core, vanilla, React, IIFE).");

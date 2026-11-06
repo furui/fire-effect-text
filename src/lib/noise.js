@@ -42,6 +42,8 @@ export function createNoise(seed = 77) {
   };
 
   return {
+    permutation: p,
+    grad3,
     noise2(x, y) {
       const X = Math.floor(x) & 255;
       const Y = Math.floor(y) & 255;

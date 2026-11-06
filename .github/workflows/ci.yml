@@ -26,8 +26,20 @@ jobs:
       - name: Build library bundles
         run: npm run build
 
-      - name: Run automated tests
+      - name: Run source tests
         run: npm test
+
+      - name: Run dist smoke test
+        run: npm run test:dist
+
+      - name: Typecheck declarations
+        run: npm run typecheck
 
       - name: Build demo site
         run: npm run build:demo
+
+      - name: Run browser tests
+        run: npm run test:browser
+
+      - name: Validate package contents
+        run: npm run pack:check

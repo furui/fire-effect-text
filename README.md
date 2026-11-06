@@ -1,211 +1,165 @@
-# fire-effect-text 🔥
+# fire-effect-text
 
-[![npm version](https://img.shields.io/npm/v/fire-effect-text.svg?color=ff6a14)](https://www.npmjs.com/package/fire-effect-text)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
+[![AI Assisted](https://www.aihonestybadge.com/badges/ai-assisted-small.svg)](https://www.aihonestybadge.com)
 
-> A high-performance, physics-based burning text component for **React** and **Plain JavaScript**. Powered by an Eulerian Navier–Stokes fluid solver, Planckian blackbody thermal radiation ($500\,\text{K} - 2150\,\text{K}$), and vorticity confinement.
+Burning text effect for React and plain JavaScript.
 
-Works with any custom font, size, and layout. Features interactive pointer wind gusts, customizable flame reach/height, pause/resume playback controls, and crisp foreground overlay text with configurable blend modes.
+![fire-effect-text](docs/preview.png)
 
----
-
-## ⚡ Quick Demo
-
-To run the interactive test and demo harness locally:
-
-```bash
-git clone https://github.com/synkknys/fire-effect-text.git
-cd fire-effect-text
-npm install
-npm start
-```
-
-This launches the interactive Vite playground with live controls for font family, size, letter spacing, flame height, wind, fuel, foreground blend modes, pause/resume, and test window resizing.
-
----
-
-## 📦 Installation
+## Install
 
 ```bash
 npm install fire-effect-text
-# or
-yarn add fire-effect-text
-# or
-pnpm add fire-effect-text
 ```
 
----
-
-## 🚀 Usage
-
-### 1. React Component
+## React
 
 ```jsx
-import React, { useRef } from "react";
+import { useRef } from "react";
 import { FireText } from "fire-effect-text/react";
 
-export function HeroBanner() {
-  const fireRef = useRef(null);
+export function Hero() {
+  const fire = useRef(null);
 
   return (
-    <div>
+    <>
       <FireText
-        ref={fireRef}
+        ref={fire}
         text="INFERNO"
-        fontFamily="'Cinzel Decorative', Georgia, serif"
         fontSize={104}
-        fontWeight="900"
         fuel={1.2}
-        flameHeight={1.2} // Flame reach multiplier (0.2 - 2.5)
-        wind={0}
-        overlayText={true} // Keep text crisp on top of fire
-        overlayBlendMode="hard-light" // Any canvas blend mode
-        overlayColor="ember"
-        smoke={true}
-        sparks={true}
-        bloom={true}
+        flameHeight={1.2}
+        overlayText
+        overlayBlendMode="hard-light"
       />
-
-      {/* Programmatic controls */}
-      <button onClick={() => fireRef.current?.togglePause()}>
-        Pause / Resume
-      </button>
-    </div>
+      <button onClick={() => fire.current?.togglePause()}>Pause / Resume</button>
+    </>
   );
 }
 ```
 
-### 2. Plain JavaScript
+## Vanilla JavaScript
 
 ```javascript
 import { FireText } from "fire-effect-text/vanilla";
 
 const fire = new FireText("#fire-stage", {
   text: "BLAZE",
-  fontFamily: "Impact, sans-serif",
   fontSize: 96,
-  fontWeight: "900",
-  flameHeight: 1.0,
-  fuel: 1.15,
   overlayText: true,
-  overlayBlendMode: "source-over",
   overlayColor: "molten",
 });
 
-// Update options anytime:
-fire.setOptions({
-  text: "NEW TITLE",
-  fontSize: 120,
-  flameHeight: 1.5,
-});
-
-// Playback controls:
-fire.pause();
-fire.resume();
+fire.setOptions({ text: "NEW TITLE", flameHeight: 1.5 });
 fire.togglePause();
-
-// Clean up when unmounting:
 // fire.destroy();
 ```
 
-### 3. Browser Script Tag (IIFE)
-
-You can also use the standalone global bundle directly in HTML:
+## Script tag
 
 ```html
 <div id="fire-container"></div>
-
 <script src="https://unpkg.com/fire-effect-text/dist/fire-text.global.js"></script>
 <script>
   const fire = new FireTextBundle.FireText("#fire-container", {
     text: "PYRO",
     fontSize: 84,
-    flameHeight: 1.3,
   });
 </script>
 ```
 
----
+## Renderers
 
-## 🎛️ Configuration Options & Props
+The default `renderer: "auto"` tries WebGPU, then WebGL2, then Canvas2D. Canvas2D is the reference implementation and the fallback.
+
+```javascript
+const fire = new FireText("#stage", { renderer: "auto", fallback: true });
+
+await fire.ready;
+console.log(fire.renderer); // "webgpu" | "webgl2" | "canvas2d"
+
+await fire.setRenderer("canvas2d"); // manual fallback
+```
+
+- `renderer`: `"auto"`, `"webgpu"`, `"webgl2"`, or `"canvas2d"`.
+- `fallback`: defaults to `true`. When `false`, a failed requested backend rejects `ready`.
+- `ready`: resolves after the first backend initializes.
+- `renderer`: the active backend after initialization, or `null`.
+- `onRendererChange({ requested, renderer, reason })`: fired after initialization and renderer switches.
+- `onError(error)`: receives renderer initialization and context-loss errors.
+
+WebGPU requires a secure context. WebGL2 requires float render targets. GPU output approximates the Canvas2D reference; use `renderer: "canvas2d"` for the exact reference look.
+
+## Options
 
 | Option | Type | Default | Description |
-| :--- | :--- | :--- | :--- |
-| `text` | `string` | `"FIRE"` | Text content to ignite (supports `\n` for multi-line). |
-| `fontFamily` | `string` | `"system-ui, ..."` | Any CSS `font-family` (e.g. `'Cinzel Decorative', serif`, `Impact`). |
+| --- | --- | --- | --- |
+| `text` | `string` | `"FIRE"` | Text to render. Use `\n` for multiple lines. |
+| `fontFamily` | `string` | system UI stack | Any CSS `font-family`. |
 | `fontSize` | `number` | `96` | Font size in CSS pixels. |
-| `fontWeight` | `string \| number` | `"900"` | CSS `font-weight` (e.g. `400`, `700`, `900`, `"bold"`). |
-| `fontStyle` | `string` | `"normal"` | CSS `font-style` (`"normal"` or `"italic"`). |
-| `letterSpacing` | `string` | `"0px"` | CSS letter spacing (e.g. `"2px"`, `"-1px"`). |
-| `flameHeight` | `number` | `1.0` | Controls how high the flames reach and upward buoyancy push (`0.2` – `2.5`). |
-| `fuel` | `number` | `1.15` | Flame fuel intensity (`0.3` – `2.2`). |
-| `wind` | `number` | `0` | Horizontal wind force (`-1.0` left to `+1.0` right). |
-| `autoWind` | `boolean` | `true` | Subtle natural procedural wind breeze. |
-| `paused` | `boolean` | `false` | Freeze/pause simulation and rendering. |
-| `overlayText` | `boolean` | `false` | Render crisp foreground text directly over flames. |
-| `overlayBlendMode`| `string` | `"source-over"` | Blend mode (`"source-over"`, `"screen"`, `"hard-light"`, `"multiply"`, `"overlay"`, etc.). |
-| `overlayColor` | `string` | `"ember"` | Overlay fill: `"ember"`, `"molten"`, or any CSS color (`"#fff"`, `"#140904"`). |
-| `overlayOpacity` | `number` | `0.82` | Opacity of the foreground overlay text (`0.0` – `1.0`). |
-| `overlayStrokeColor` | `string` | `"rgba(255, 165, 70, 0.75)"` | Rim stroke color around the foreground text. |
-| `overlayStrokeWidth` | `number` | `1.5` | Rim stroke width in CSS pixels (`0` to disable). |
-| `showTextBody` | `boolean` | `true` | Charred/glowing ember text body under the flames. |
-| `smoke` | `boolean` | `true` | Render dark soot and smoke plume. |
-| `sparks` | `boolean` | `true` | Render flying advected ember sparks. |
-| `bloom` | `boolean` | `true` | Soft thermal bloom glow. |
-| `interactive` | `boolean` | `true` | Allow mouse/touch drag to blow flames. |
-| `background` | `string` | `"#07090f"` | Canvas background color, or `"transparent"`. |
-| `simScale` | `number` | `3.0` | Simulation grid cell size in CSS pixels (lower = higher res). |
-| `width` | `number \| null` | `null` | Explicit canvas width (auto-sized to text if null). |
-| `height` | `number \| null` | `null` | Explicit canvas height (auto-sized to text if null). |
+| `fontWeight` | `string \| number` | `"900"` | CSS `font-weight`. |
+| `fontStyle` | `string` | `"normal"` | CSS `font-style`. |
+| `letterSpacing` | `string` | `"0px"` | CSS `letter-spacing`. |
+| `fuel` | `number` | `1.15` | Flame fuel (`0.2` - `2.5`). |
+| `flameHeight` | `number` | `1.0` | Flame reach and buoyancy (`0.15` - `3.0`). |
+| `wind` | `number` | `0` | Horizontal wind (`-1.0` - `1.0`). |
+| `autoWind` | `boolean` | `true` | Procedural wind modulation. |
+| `simScale` | `number` | `3.0` | Simulation cell size (`1.8` - `6.0`). Lower is sharper. |
+| `paused` | `boolean` | `false` | Freeze the simulation. |
+| `interactive` | `boolean` | `true` | Click or drag over the canvas to blow the flames. |
+| `pointerStrength` | `number` | `1.0` | Pointer impulse multiplier (`0` disables it). |
+| `background` | `string` | `"#07090f"` | CSS background color or `"transparent"`. |
+| `smoke` | `boolean` | `true` | Render the smoke plume. |
+| `sparks` | `boolean` | `true` | Render ember sparks. |
+| `bloom` | `boolean` | `true` | Render thermal glow. |
+| `showTextBody` | `boolean` | `true` | Render the charred ember text body. |
+| `overlayText` | `boolean` | `false` | Render crisp text above the fire. |
+| `overlayBlendMode` | `string` | `"source-over"` | Canvas blend mode for the overlay. |
+| `overlayColor` | `string` | `"ember"` | `"ember"`, `"molten"`, or any CSS color. |
+| `overlayOpacity` | `number` | `0.82` | Overlay opacity (`0.0` - `1.0`). |
+| `overlayStrokeColor` | `string` | warm amber | Overlay outline color. |
+| `overlayStrokeWidth` | `number` | `1.5` | Overlay outline width in CSS pixels. |
+| `flameHeadroom` | `number` | `1.35` | Extra space above the text. |
+| `paddingX` | `number` | `0.55` | Horizontal padding. |
+| `paddingBottom` | `number` | `0.35` | Bottom padding. |
+| `width` | `number \| null` | `null` | Explicit canvas width. |
+| `height` | `number \| null` | `null` | Explicit canvas height. |
+| `renderer` | `string` | `"auto"` | Backend preference. |
+| `fallback` | `boolean` | `true` | Allow automatic fallback. |
 
----
+## How it works
 
-## 🔬 Physics & Rendering Pipeline
+- Glyph rasterization produces a heat and fuel field shaped like the text.
+- A fluid-style advection and pressure solve moves the heat and soot upward.
+- Temperature maps through a blackbody color ramp and tone mapping.
 
-1. **Glyph Fuel & Temperature Injection**:
-   Text glyphs are rasterized into a grid mask. High-curvature edge contours emit volatile fuel and trigger advected sparks, while inner strokes maintain glowing ember thermal cores.
-2. **Eulerian Navier–Stokes Solver**:
-   Includes advection, thermal buoyancy $\mathbf{g} \propto \beta T$, and 3D Perlin-like vorticity confinement to preserve turbulent flame swirls without excessive numerical dissipation.
-3. **Red-Black Gauss–Seidel Pressure Projection**:
-   Enforces fluid incompressibility ($\nabla \cdot \mathbf{u} = 0$).
-4. **Planckian Blackbody Radiation Spectrum**:
-   Temperature fields map through Planck's law integrated across CIE 1931 colorimetric matching lobes:
-   $$M_\lambda(T) = \frac{2\pi h c^2}{\lambda^5 \left(e^{\frac{hc}{\lambda k_B T}} - 1\right)}$$
-   Yielding realistic deep red embers ($800\,\text{K}$), radiant amber flames ($1400\,\text{K}$), and brilliant incandescent white-hot centers ($1800\,\text{K}+$).
+## Browser support
 
----
+Canvas2D works in all modern browsers. WebGL2 needs float render targets. WebGPU needs a secure context and a browser with WebGPU enabled. The demo reports which backend is active.
 
-## 🛠️ Development & Publishing
+## Development
 
 ```bash
-# Run local dev server with demo harness
-npm start
+npm install
+npm start          # demo dev server
+npm run build      # library bundles
+npm test           # unit tests (src)
+npm run test:dist  # built bundle smoke test
+npm run typecheck
+npm run test:browser
+npm run build:demo
+npm run screenshot
+npm run pack:check
+```
 
-# Run automated tests
-npm test
+## Publishing
 
-# Build distribution bundles into dist/
-npm run build
-
-# Publish to npm (requires NPM_TOKEN or authenticated npm login)
+```bash
 npm publish --access public
 ```
 
-### GitHub Actions CI/CD
-- **`ci.yml`**: Runs on pushes and pull requests to verify compilation, test suites, and bundle generation.
-- **`release.yml`**: Automatically publishes to npm with provenance whenever a GitHub release is created or dispatched.
+`prepack` builds the bundles and runs the dist smoke test. `prepublishOnly` runs the source tests.
 
----
-
-## 👤 Author
-
-- **Author**: Jeff Davis
-- **npm Account**: [synkknys](https://www.npmjs.com/~synkknys)
-- **Repository**: [https://github.com/synkknys/fire-effect-text](https://github.com/synkknys/fire-effect-text)
-
----
-
-## 📄 License
+## License
 
 [MIT](LICENSE) © 2026 Jeff Davis
